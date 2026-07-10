@@ -1,0 +1,59 @@
+---
+# -------------------------------------------------------------------------
+# ЭТАП 1: Внутренние переменные Ansible (Компактный вид, вложенность 2)
+# -------------------------------------------------------------------------
+- name: "Этап 1: Ключи и значения верхнего уровня Ansible"
+  ansible.builtin.debug:
+    msg: >
+      Переменная [ {{ item }} ] =  {{ lookup('ansible.builtin.vars', item) }}
+  loop: "{{ q('ansible.builtin.varnames', '^.+') }}"
+  when:
+    - item != 'ansible_facts'
+    - item != 'vars'
+    - item != 'hostvars'
+    - not item.startswith('ansible_')
+  tags:
+    - stage1
+    - deploy
+
+# -------------------------------------------------------------------------
+# ЭТАП 2: Переменные GitLab Runner (Окружение, откуда запущен Ansible)
+# -------------------------------------------------------------------------
+- name: "Этап 2: Вывод ВСЕХ доступных ENV переменных раннера"
+  ansible.builtin.debug:
+    var: ansible_facts['env']
+  delegate_to: localhost
+  tags:
+    - stage2
+    - deploy
+
+# -------------------------------------------------------------------------
+# ЭТАП 3: Переменные и окружение целевой машины (Target Host)
+# -------------------------------------------------------------------------
+- name: "Этап 3: Данные и ENV целевой машины"
+  ansible.builtin.debug:
+    msg:
+      - "--- ЖЕЛЕЗО И ОС ---"
+      - "ОС сервера: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      - "Свободная память: {{ ansible_facts['memfree_mb'] }} MB из {{ ansible_facts['memtotal_mb'] }} MB"
+
+      - "--- ПЕРЕМЕННЫЕ СРЕДЫ (ENV) НА ЦЕЛЕВОЙ МАШИНЕ ---"
+      - "Текущий пользователь (USER): {{ ansible_facts['env']['USER'] | default('Не найден', true) }}"
+      - "Домашняя папка (HOME): {{ ansible_facts['env']['HOME'] | default('Не найден', true) }}"
+      - "Системный PATH: {{ ansible_facts['env']['PATH'] | default('Не найден', true) }}"
+      - "Языковая локаль (LANG): {{ ansible_facts['env']['LANG'] | default('Не найден', true) }}"
+      - "--- ПОЛНЫЙ СПИСОК ENV СЕРВЕРА (RAW) ---"
+      - "{{ ansible_facts['env'] }}"
+  tags:
+    - stage3
+    - deploy
+
+# -------------------------------------------------------------------------
+# ОЧИСТКА: Задача удаления временных данных (Тег: cleanup)
+# -------------------------------------------------------------------------
+- name: "Этап Очистки: Удаление временных файлов приложения"
+  ansible.builtin.file:
+    path: "/tmp/my_temporary_app_data"
+    state: absent
+  tags:
+    - cleanup

@@ -1,0 +1,4 @@
+---
+- name: Molecule tests
+  # Поднимаемся на три уровня вверх из папки molecule/default/ и забираем боевой playbook
+  ansible.builtin.import_playbook: "../../playbook.yml"

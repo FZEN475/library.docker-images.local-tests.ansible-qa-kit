@@ -1,0 +1,12 @@
+---
+- name: TBC GitLab Ansible Environment Audit Playbook
+  hosts: all_nodes
+  gather_facts: true
+  # Переменные доступны всему плейбуку и всем его роли
+  vars:
+    db_name: "production_db"
+  roles:
+    - role: example
+      # Переменные доступны внутри блока роли
+      vars:
+        example_my_custom_variable: "hello_world"

@@ -1,0 +1,11 @@
+{
+  "all_nodes": {
+    "hosts": {
+      "target_server": {}
+    },
+    "vars": {
+      "ansible_host": "{{ lookup('ansible.builtin.env', 'TARGET_HOST') }}",
+      "ansible_user": "{{ lookup('ansible.builtin.env', 'TARGET_USER') }}"
+    }
+  }
+}

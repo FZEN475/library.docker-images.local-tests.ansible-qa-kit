@@ -1,0 +1,38 @@
+---
+driver:
+  name: docker # Говорим Molecule: "Работай через Docker"
+platforms:
+  - name: node-1
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    groups:
+      - all_nodes
+  - name: node-2
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    groups:
+      - all_nodes
+  - name: node-3
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    groups:
+      - all_nodes
+provisioner:
+  name: ansible # Роль накатываем силами самого Ansible
+  env:
+    # Базовые флаги для Ansible внутри тестов
+    ANSIBLE_FORCE_COLOR: "true"
+
+  # Настройки для этапа Converge (Деплой)
+  converge_args:
+    - "{{ '--tags ' ~ lookup('ansible.builtin.env', 'ANSIBLE_DEFAULT_TAGS') if lookup('ansible.builtin.env', 'ANSIBLE_DEFAULT_TAGS') else '-v' }}"
+
+  # Настройки для этапа Side Effect (Очистка)
+  side_effect_args:
+    - "{{ '--tags ' ~ lookup('ansible.builtin.env', 'ENV_CLEANUP_TAGS') if lookup('ansible.builtin.env', 'ENV_CLEANUP_TAGS') else '-v' }}"
+
+scenario:
+  # Явно описываем, что происходит при вызове команды `molecule test`
+  test_sequence:
+    - destroy      # На всякий случай удаляем старое, если прошлый тест упал
+    - create       # Создаем контейнеры на удаленном докер-хосте 192.168.2.129
+    - converge     # ШАГ 1: Накатываем деплой (выполнятся таски с тегом deploy)
+    - side_effect  # ШАГ 2: В этих же контейнерах запускаем таски с тегом cleanup
+    - destroy      # Финально уничтожаем контейнеры

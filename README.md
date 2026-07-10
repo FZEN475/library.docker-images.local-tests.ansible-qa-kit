@@ -1,93 +1,325 @@
-# ansible-qa-kit
+# ansible-ci-kit
 
+Containerized Ansible automation engine based on [TBC (To Be Continuous)](https://gitlab.com/to-be-continuous/ansible).
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.fizn.ru/library/docker-images/local-tests/ansible-qa-kit.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-* [Set up project integrations](https://gitlab.fizn.ru/library/docker-images/local-tests/ansible-qa-kit/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
+**Автоматизирует полный цикл работы с Ansible:** от статического анализа и сканирования безопасности до развертывания инфраструктуры и последующей очистки временных ресурсов. Работает как self-contained CI execution engine, полностью управляемый через переменные окружения.
+ 
+---
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Контейнеризированный движок для автоматизации Ansible.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Проект предоставляет готовое окружение для выполнения CI/CD задач любой сложности. Архитектура построена на принципах модульности: главный диспетчер `entrypoint.sh` последовательно запускает изолированные подпроцессы для каждого этапа жизненного цикла (lint, checkov, deploy, cleanup).
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Весь pipeline гибко настраивается через environment variables. Вам не нужно писать дополнительный bash-код внутри пайплайнов — достаточно подключить контейнер, задать конфигурационные переменные, и движок сам выполнит валидацию, установку зависимостей Galaxy, деплой и очистку.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Structure
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+| Stage    | Utility                                                 | Job                  | Description       |
+|----------|---------------------------------------------------------|----------------------|-------------------|
+| `build`  | [ansible-lint](https://github.com/ansible/ansible-lint) | `ansible-lint.sh`    | Linting           |
+| `test`   | [checkov](https://github.com/bridgecrewio/checkov)      | `ansible-checkov.sh` | Compliance checks |
+| `deploy` | [ansible](https://github.com/ansible/ansible)           | `ansible-deploy.sh`  |                   |
+| `deploy` | [ansible](https://github.com/ansible/ansible)           | `ansible-cleanup.sh` |                   |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+---
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Advanced Features
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Dynamic Environments Integrations (`dotenvfile`)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Движок автоматически генерирует файлы переменных окружения (`.env`) для динамических сред GitLab (**Review**, **Integration**, **Staging**, **Production**). Это позволяет передавать вычисленные параметры (например, URL развернутого приложения) на следующие этапы пайплайна или использовать кнопку **"View App"** в Merge Request.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+В процессе выполнения формируется файл `ansible.env` (или `ansible.env.<namespace>`, если задан namespace), содержащий следующие сгенерированные переменные:
 
-## License
-For open source projects, say how it is licensed.
+```bash
+# Логика генерации переменных внутри движка:
+environment_type=\$ENV_TYPE
+environment_name=\${ENV_APP_NAME:-\({ANSIBLE_BASE_APP_NAME}\){ENV_APP_SUFFIX}}
+environment_url=\${ENV_URL:-\({ANSIBLE_ENVIRONMENT_URL:-\)CI_ENVIRONMENT_URL}}
+environment_namespace=(echo "ANSIBLE_ENVIRONMENT_NAMESPACE" | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]')
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+prefix="\({environment_namespace:+\){environment_namespace}_}"
+dotenvfile="ansible.env\({environment_namespace:+.\){environment_namespace}}"
+
+{
+  echo "\({prefix}environment_type=\){environment_type}"
+  echo "\({prefix}environment_name=\){environment_name}"
+  echo "\({prefix}environment_url=\){environment_url}"
+  
+  # Необходим для корректной работы Dynamic Environments в интерфейсе GitLab
+  if [[ "\$environment_namespace" ]]; then 
+    echo "environment_url=\${environment_url}"
+  fi
+} >> "\$dotenvfile"
+```
+
+Переменные также автоматически передаются в запуск плейбуков в качестве `extra-vars`:
+```bash
+-e environment_type=\$environment_type -e environment_name=\(environment_name -e environment_namespace=\)environment_namespace
+```
+
+### `inventory.json` и работа с внешними артефактами
+
+Файл инвентаря `inventory.json` обычно генерируется динамически во внешних пайплайнах и передается в текущий проект.
+
+#### ❌ Способ 1: Через GitLab Premium (`needs:project`)
+Стандартный способ GitLab для скачивания артефактов из других репозиториев выглядит так:
+
+```yaml
+needs:
+  - project: group/design-system       # Путь к стороннему репозиторию
+    job: build_assets                 # Название job, генерирующей инвентарь
+    ref: main                         # Ветка, тег или коммит
+    artifacts: true                   # Скачиваем артефакты
+```
+> **⚠️ Но есть нюанс:** Кросс-проектные `needs` доступны только в платных подписках GitLab (Premium/Ultimate).
+
+#### ✅ Способ 2: Через Generic Package Registry (Бесплатный self-hosted / Free вариант)
+Чтобы не платить за лицензии, мы используем **Generic Package Registry** как промежуточное хранилище артефактов.
+
+**1. Публикация артефакта в исходном проекте:**
+Для автоматической загрузки используем готовый компонент от *To Be Continuous*:
+
+```yaml
+include:
+  - component: \$CI_SERVER_FQDN/to-be-continuous/gitlab-package/gitlab-ci-gitlab-package@1.3.3
+    inputs:
+      files: "inventory.json"                # Что упаковать и загрузить
+      package-name: "infrastructure-inventory" # Имя пакета в Registry
+```
+
+**2. Скачивание артефакта в нашем пайплайне:**
+В самом начале пайплайна забираем файл обычным `curl` через API, используя системный `CI_JOB_TOKEN`, и прокидываем его дальше через локальные артефакты текущей джобы:
+
+```yaml
+stages:
+  - download
+
+download_inventory:
+  stage: download
+  script:
+    - >
+      curl --header "JOB-TOKEN: \$CI_JOB_TOKEN" 
+      "\$CI_API_V4_URL/projects/<ID_ИСХОДНОГО_ПРОЕКТА>/packages/generic/infrastructure-inventory/v1.0.0/inventory.json" 
+      -o ./src/inventory.json
+  artifacts:
+    paths:
+      - ./src/inventory.json  # Передаем файл в следующие job'ы (включая deploy)
+    expire_in: 1 day
+```
+
+### Local tests
+
+Для локального тестирования пайплайна и Ansible-плейбуков нет необходимости жестко прописывать адреса серверов в коде. Вы можете динамически передавать данные целевого хоста через переменные окружения.
+
+Для этого файл инвентаря `inventory.json` настраивается с использованием встроенного плагина `lookup`, который считывает переданные в контейнер переменные:
+
+```json
+{
+  "all": {
+    "hosts": {
+      "target_server": {}
+    },
+    "vars": {
+      "ansible_host": "{{ lookup('ansible.builtin.env', 'TARGET_HOST') }}",
+      "ansible_user": "{{ lookup('ansible.builtin.env', 'TARGET_USER') }}"
+    }
+  }
+}
+```
+
+Такой подход позволяет безопасно подставлять параметры авторизации (`TARGET_HOST` и `TARGET_USER`) прямо во время локального запуска контейнера автоматизации, сохраняя конфигурационные файлы чистыми.
+
+### Ansible Galaxy
+
+Движок автоматически управляет внешними зависимостями (ролями и коллекциями). Перед запуском основных этапов они скачиваются и устанавливаются на основе файла конфигурации `requirements.yml`.
+
+#### Пример структуры `requirements.yml`
+
+[Примеры.](https://docs.ansible.com/projects/ansible/latest/galaxy/user_guide.html)
+```yaml
+---
+# Установка коллекций из официального Ansible Galaxy или приватных источников
+collections:
+  - name: community.general
+    version: 9.3.0
+  - name: ansible.posix
+    version: 1.6.0
+
+# Установка ролей из Git-репозиториев
+roles:
+  - src: git@gitlab.company.com:mygroup/ansible-core.git
+    scm: git
+    version: "0.1"
+```
+
+#### Аутентификация в приватных репозиториях
+
+Для безопасного скачивания зависимостей из закрытых корпоративных Git-репозиториев или приватных Galaxy-серверов используется встроенная функция `configure_netrc`.
+
+Она динамически генерирует файл конфигурации `.netrc` в домашней директории контейнера, используя системные переменные авторизации (например, `CI_JOB_TOKEN` или персональные токены доступа). Это избавляет от необходимости передавать пароли и ключи в открытом виде внутри кода или логов пайплайна.
+
+### `ANSIBLE_ENVIRONMENT_URL`
+
+Переменная используется для указания базового URL-адреса публикуемого сервиса. Это может быть как веб-интерфейс (`WEBUI`), так и внешний порт для подключения по `SSH`.
+
+#### Механика работы переменной внутри пайплайна:
+
+* **Интеграция с GitLab Runner** — на основе URL автоматически генерируется переменная окружения `hostname` (очищенная от протокола `https://` или `http://`) и прокидывается внутрь контейнера выполнения.
+* **Экспорт в `dotenvfile`** — значение записывается в итоговый `.env` файл как `environment_url` для автоматической передачи этого адреса во все последующие этапы (`jobs`) пайплайна.
+* **Интеграция с интерфейсом GitLab** — адрес сохраняется в артефактах развертывания. Благодаря этому в Merge Request и в разделе **Deployments** -> **Environments** активируется кликабельная кнопка **"View App"**, ведущая напрямую на развернутое приложение.
+
+### Tags
+
+В движке реализована гибкая система меток (tags) для задач в Ansible Playbook. Она позволяет выборочно помечать задачи, блоки или роли, чтобы детально управлять их выполнением на разных этапах пайплайна и в различных окружениях.
+
+#### Конфигурация тегов по окружениям
+
+| Переменная | Назначение | Пример значения |
+| :--- | :--- | :--- |
+| **`ANSIBLE_DEFAULT_TAGS`** | Список тегов по умолчанию для стандартного запуска сценариев деплоя. | `"stage1,stage2"` |
+| **`ANSIBLE_REVIEW_TAGS`** | Теги с высоким приоритетом для динамических сред (Review). | `"dev-deploy"` |
+| **`ANSIBLE_INTEG_TAGS`** | Теги с высоким приоритетом для интеграционного контура (Integration). | `"integ-deploy"` |
+| **`ANSIBLE_STAGING_TAGS`** | Теги с высоким приоритетом для предпрод-окружения (Staging). | `"staging-deploy"` |
+| **`ANSIBLE_PROD_TAGS`** | Теги с высоким приоритетом для продуктивного контура (Production). | `"prod-deploy,db-migrate"` |
+| **`ENV_CLEANUP_TAGS`** | Теги этапов очистки для запуска внутри cleanup-задач. | `"cleanup"` |
+
+#### Логика работы и приоритеты
+
+1. **Приоритет окружения**: Если для текущего типа окружения (определяется через `ENV_TYPE`) задана своя специализированная переменная (например, `ANSIBLE_PROD_TAGS` для `ENV_TYPE: "production"`), движок возьмет именно её.
+2. **Fallback-значение**: Если специализированная переменная для текущего окружения пуста или не задана, движок автоматически переключится на использование общих тегов из `ANSIBLE_DEFAULT_TAGS`.
+3. **Обязательное требование**: Переменная `ENV_CLEANUP_TAGS` является **обязательной** для корректной работы этапа `cleanup`. Без указания этого тега запуск очистки временных ресурсов и инфраструктуры завершится ошибкой.
+
+### Private key
+
+Для авторизации на целевых хостах движок использует приватные SSH-ключи. При работе с ключами поддерживаются гибкие способы передачи и учитываются ограничения безопасности сред запуска.
+
+#### Особенности работы:
+
+* **Универсальный формат передачи** — переменная принимает как путь к существующему файлу ключа внутри контейнера (`/tmp/id_ed25519`), так и непосредственное текстовое содержимое самого приватного ключа. Если передано текстовое содержимое, движок автоматически запишет его во временный файл для работы SSH.
+* **Защита от ограничений файловой системы (Read-Only FS)** — перед использованием ключа движок в обязательном порядке выполняет команду изменения прав доступа: `chmod 0600 "$private_key"`. По этой причине **нельзя монтировать файл ключа напрямую в runner** с хостовой машины в режиме "только чтение". Попытка изменить права на защищенной файловой системе вызовет ошибку пайплайна. Вместо этого передавайте содержимое ключа через защищенные переменные (`CI/CD Variables`) или копируйте его во временные директории (например, `/tmp/`).
+
+### Pre/Post hooks
+
+Для этапов развертывания (`apply` / `deploy`) и очистки (`cleanup`) доступен механизм хуков. Вы можете выполнять кастомные shell-скрипты непосредственно перед или сразу после выполнения основного Ansible Playbook.
+
+Скрипты ищутся в директории, указанной в переменной `ANSIBLE_SCRIPTS_DIR`. Движок автоматически проверяет их наличие и запускает на соответствующих этапах:
+
+* **`pre-ansible-playbook.sh`** — запускается перед выполнением `ansible-playbook`. Подходит для предварительной настройки окружения, генерации динамических файлов конфигурации или проверки доступности ресурсов.
+* **`post-ansible-playbook.sh`** — запускается сразу после завершения `ansible-playbook`. Подходит для отправки уведомлений в чаты, логирования результатов или триггера внешних систем мониторинга.
+
+> 💡 Также для этапа установки зависимостей (Galaxy) доступен специализированный хук предварительной настройки: `$ANSIBLE_SCRIPTS_DIR/pre-ansible-galaxy.sh`.
+
+---
+## ⚙️ Архитектура ядра (`entrypoint.sh`)
+
+Главный диспетчер `entrypoint.sh` управляет жизненным циклом всего пайплайна. Он написан на легковесном командном интерпретаторе `ash` и работает по следующему принципу:
+
+1. **Изоляция и сохранение контекста**: При старте скрипт экспортирует текущие переменные окружения в файл `/tmp/current_env.sh`. Каждая задача запускается в изолированном подпроцессе через функцию `run_subprocess`, которая перед стартом целевого скрипта накатывает сохраненную среду.
+2. **Гибкое управление этапами**: Вы можете мгновенно отключить любой шаг пайплайна, передав соответствующий флаг со значением `true`.
+
+### Флаги управления этапами
+
+* `ANSIBLE_LINT_DISABLED: "true"` — пропустить статический анализ (`ansible-lint`).
+* `ANSIBLE_CHECKOV_DISABLED: "true"` — пропустить сканирование безопасности (`checkov`).
+* `ANSIBLE_DEPLOY_DISABLED: "true"` — пропустить этап развертывания.
+* `ANSIBLE_CLEANUP_DISABLED: "true"` — пропустить этап очистки ресурсов.
+
+---
+## 📋 Справочник переменных окружения (Environment Variables)
+
+Основные параметры конфигурации движка, которые передаются в блоке `environment`:
+
+| Переменная | Значение по умолчанию | Описание |
+| :--- | :--- | :--- |
+| **Системные** | | |
+| `TRACE` | `true` | Включение расширенного вывода логов для отладки. |
+| `CUSTOM_CA_CERTS` | `"/tmp/ca.crt"` | Путь к кастомным корневым сертификатам. |
+| **Пути и директории** | | |
+| `ANSIBLE_PROJECT_DIR` | `"./src"` | Корневая директория вашего Ansible-проекта. |
+| `ANSIBLE_SCRIPTS_DIR` | `"."` | Директория, в которой движок ищет файлы хуков (`pre-*`/`post-*`). |
+| `ENV_INVENTORY` | `"inventory.json"` | Имя файла инвентаря Ansible. |
+| `ENV_PLAYBOOK_FILE` | `"playbook.yml"` | Имя файла основного плейбука. |
+| `ANSIBLE_REQUIREMENTS_FILE` | `"requirements.yml"` | Файл зависимостей для Ansible Galaxy. |
+| **Параметры авторизации** | | |
+| `TARGET_HOST` | — | IP или домен целевого сервера (для `inventory.json`). |
+| `TARGET_USER` | — | Имя SSH-пользователя на целевом сервере. |
+| `ANSIBLE_DEFAULT_PUBLIC_KEY` | `"/tmp/id_ed25519.pub"` | Путь к публичному SSH-ключу. |
+| `ANSIBLE_DEFAULT_PRIVATE_KEY`| `"/tmp/id_ed25519"` | Путь к приватному SSH-ключу (или его содержимое). |
+| `ANSIBLE_VAULT_PASSWORD` | `""` | Пароль для расшифровки Ansible Vault. |
+| **Настройки Ansible** | | |
+| `ANSIBLE_HOST_KEY_CHECKING` | `false` | Отключение проверки SSH Host Keys (важно для авто-деплоя). |
+| `ANSIBLE_FORCE_COLOR` | `true` | Принудительное включение цветного вывода в логах CI. |
+| `ANSIBLE_DEFAULT_EXTRA_ARGS` | `""` | Дополнительные аргументы для `ansible-playbook`. |
+| `ANSIBLE_GALAXY_EXTRA_ARGS` | `""` | Дополнительные аргументы для `ansible-galaxy`. |
+| **Параметры линтера и ИБ** | | |
+| `ANSIBLE_LINT_FIX` | `true` | Автоматическое исправление мелких замечаний линтера. |
+| `ANSIBLE_CHECKOV_ARGS` | `""` | Дополнительные аргументы для сканера Checkov. |
+
+---
+## 🔧 Модуль автоматизированного тестирования Ansible-ролей (Molecule Framework)
+
+В рамках конвейера CI/CD развернута подсистема сквозного интеграционного тестирования инфраструктурного кода на базе фреймворка **Molecule** (с использованием драйвера `docker`).
+
+Данное решение изолировано внутри контейнера сборщика и реализует паттерн накопления ошибок (**Accumulative Error Pattern**). Это гарантирует выполнение всех этапов проверок с последующим обязательным демонтажем тестовых сред для предотвращения утечки ресурсов Docker-хоста.
+
+### 📋 Жизненный цикл тестирования (Test Sequence)
+
+В отличие от стандартного поведения, падение промежуточных шагов (например, статического анализа) не прерывает конвейер. Это позволяет получить исчерпывающий сводный отчет по всем фазам тестирования за один запуск пайплайна.
+
+```text
+[Инициализация] ➔ [Зависимости] ➔ [Синтаксис] ➔ [Оркестрация сред] ➔ [Подготовка]
+  ➔ Блок DEPLOY  [Накат конфигурации ➔ Идемпотентность ➔ Побочные эффекты ➔ Верификация]
+  ➔ Блок CLEANUP [Деинсталляция софта ➔ Idempotence ➔ Side Effect ➔ Verify]
+  ➔ [Финальный демонтаж стенда]
+```
+
+### ⚙️ Параметры конфигурации (Переменные окружения)
+
+Управление фазами тестирования осуществляется декларативно через переменные окружения в конфигурации CI/CD:
+
+| Переменная | Дефолтное значение | Функциональное назначение |
+| :--- | :---: | :--- |
+| **`ANSIBLE_MOLECULE_DISABLED`** | `false` | Принудительное отключение подсистемы тестирования Molecule. |
+| **`DOCKER_HOST`** | *target IP* | URI-адрес удаленного Docker API для развертывания целевых инстансов. |
+| **`ANSIBLE_DEFAULT_TAGS`** | *not set* | Фильтрация тасок Ansible (теги) для фазы развертывания (**DEPLOY**). |
+| **`ENV_CLEANUP_TAGS`** | *not set* | Фильтрация тасок Ansible (теги) для фазы деинсталляции (**CLEANUP**). |
+| **`MOLECULE_ENABLE_SYNTAX`** | `true` | Валидация синтаксиса плейбуков (`--syntax-check`). |
+| **`MOLECULE_DEPLOY_ENABLE`** | `true` | Запуск основного цикла тестирования развертывания сервисов. |
+| **`MOLECULE_DEPLOY_ENABLE_IDEMPOTENCE`**| `true` | Верификация повторимости (идемпотентности) конфигурации деплоя. |
+| **`MOLECULE_DEPLOY_ENABLE_SIDE_EFFECT`**| `false` | Тестирование сценариев деградации среды / отказоустойчивости (HA). |
+| **`MOLECULE_DEPLOY_ENABLE_VERIFY`** | `false` | Запуск интеграционных тестов (Assert/Testinfra) после деплоя. |
+| **`MOLECULE_CLEANUP_ENABLE`** | `true` | Запуск цикла тестирования удаления и затирки следов системы. |
+| **`MOLECULE_CLEANUP_ENABLE_IDEMPOTENCE`**| `true` | Проверка стабильности и повторимости сценария деинсталляции. |
+| **`MOLECULE_CLEANUP_ENABLE_SIDE_EFFECT`**| `false` | Тестирование побочных эффектов в процессе деинсталляции. |
+| **`MOLECULE_CLEANUP_ENABLE_VERIFY`** | `false` | Аудит чистоты среды (проверка отсутствия остаточных артефактов). |
+| **`MOLECULE_SKIP_DESTROY`** | `false` | Флаг отладки. При `true` сохраняет инстансы на хосте для ручного аудита. |
+
+### 📂 Логирование и аудит результатов (`reports/`)
+
+Подсистема реализует гибридную схему логирования, оптимизированную как для интерактивного мониторинга, так и для последующего анализа:
+
+1. **Интерфейс CI/CD (Stdout):** Вывод сохраняет полную цветовую схему ANSI (форсировано через `ANSIBLE_FORCE_COLOR`), что упрощает визуальное чтение логов инженерами в реальном времени.
+2. **Артефакты сборки (`reports/*.log`):** Потоки вывода дублируются в изолированные файлы для каждого этапа. С помощью потокового редактора `sed` из файлов полностью вырезаются непечатные ANSI-символы разметки. Полученные логи представляют собой чистый ASCII-текст, пригодный для индексации, автоматического парсинга, поиска через `grep` или отправки во внешние системы аудита.
+
+### 🛠️ Регламент ручной отладки в изолированном окружении
+
+Для локального воспроизведения ошибок или проведения выборочного тестирования без запуска полного конвейера CI/CD, используйте атомарные команды проброса аргументов в контексте тестируемой роли:
+
+1. **Развертывание инфраструктурного стенда:**
+   ```bash
+   molecule create
+   ```
+2. **Целевой накат конфигурации (DEPLOY):**
+   ```bash
+   molecule converge -- --tags="stage1,stage2"
+   ```
+3. **Проверка корректности удаления (CLEANUP):**
+   ```bash
+   molecule converge -- --tags="cleanup"
+   ```
+4. **Утилизация окружения:**
+   ```bash
+   molecule destroy
+   ```
